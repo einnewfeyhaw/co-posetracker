@@ -276,8 +276,14 @@ def compute_val_loss(model, val_dataloader, device):
 
     return val_loss, metrics
 
-def train(model, train_dataloader, optimizer,device, epochs):
-
+def train(model, train_dataloader, optimizer,device, epochs, use_scheduler=True,lr=5e-4,):
+  parameters = list(model.model.parameters())
+    weight_decay = 1e-6
+    if use_scheduler:
+        optimizer, scheduler = fetch_optimizer(lr, weight_decay, 1e-8, max_iters, model.parameters())
+    else:
+        optimizer = torch.optim.AdamW(parameters, lr=lr, weight_decay=weight_decay) 
+        scheduler = None
   writer = SummaryWriter()
   for epoch in range(epochs):
     for batch_idx, d in train_dataloader:
