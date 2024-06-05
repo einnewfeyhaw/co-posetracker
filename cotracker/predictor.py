@@ -18,9 +18,9 @@ class CoTrackerPredictor(torch.nn.Module):
         model = build_cotracker(checkpoint)
         self.interp_shape = model.model_resolution
         self.model = model
-        self.model.eval()
+        self.model.train()
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def forward(
         self,
         video,  # (B, T, 3, H, W)
