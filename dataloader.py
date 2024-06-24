@@ -155,14 +155,14 @@ class PoseTrackDataset(Dataset):
               jpg_files = [f for f in files if f.endswith('.jpg')]
 
               # Extract frame numbers from file names and find the maximum
-              frame_numbers = [extract_frame_number(os.path.join(folder_path, f)) for f in jpg_files]
+              frame_numbers = [extract_frame_number(os.path.join(img_path, f)) for f in jpg_files]
               T = max(frame_numbers)
               person = i
               initial_frame = start
               # last_frame = max_frame
               num_times = T -start +1
-              if num_times > 36:
-                num_times = 36
+              if num_times > self.max_frames:
+                num_times = self.max_frames
               trajs_e = torch.zeros((num_times, 17, 2))
               visib = torch.zeros((num_times, 17))
               # Map frame numbers to their indices
@@ -219,6 +219,7 @@ class PoseTrackDataset(Dataset):
       )
 
       return video, queries, trajs_e, visibility
+      # return req_frames
 
 train_folder = '/content/drive/MyDrive/PoseTrack2/d1/images/train'
 train_json_folder = '/content/drive/MyDrive/PoseTrack2/d1/PoseTrack21/posetrack_data/train'
