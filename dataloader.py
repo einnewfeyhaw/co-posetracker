@@ -7,17 +7,12 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 import bisect
 class PoseTrackDataset(Dataset):
-  def __init__(self, main_folder, json_folder, max_frames, interp_shape):
+  def __init__(self, main_folder, json_folder,start_frames_json,max_frames,interp_shape):
       self.main_folder = main_folder
       self.json_folder = json_folder
-      # self.subdirectories = sorted(next(os.walk(main_folder))[1])
-      # self.valid_subdirectories = [
-      #     subdir for subdir in self.subdirectories
-      #     if os.path.exists(os.path.join(self.json_folder, f"{subdir}.json"))
-      # ]
       self.max_frames = max_frames
       self.interp_shape = interp_shape
-      with open('/content/drive/MyDrive/PoseTrack2/d1/dict.json', 'r') as json_file:
+      with open(start_frames_json, 'r') as json_file:
         load_dict = json.load(json_file)
       self.loaded_dict = {int(k): v for k, v in load_dict.items()}
 
@@ -25,7 +20,6 @@ class PoseTrackDataset(Dataset):
       last_key = list(self.loaded_dict.keys())[-1]
       another_last_key = list(self.loaded_dict[last_key])[-1]
       return len(self.loaded_dict[last_key][another_last_key]) + last_key
-      # return len(self.valid_subdirectories)
 
   def make_palindrome(self, tensor, required_length):
       current_length = tensor.shape[0]
@@ -124,12 +118,6 @@ class PoseTrackDataset(Dataset):
           else:
               persons[i['person_id']], visibility[i['person_id']] = create_keypoints_tensor(i)
               frames[i['person_id']] = [frame_num]
-    # print(frames)
-    # queries_lst = None
-    # trajs_e_lst = None
-    # vis_lst = None
-    # total_starts = []
-    # persons_and_frames = []
 
     initial_frame = list_values[0]
     person = list_values[1]
@@ -173,60 +161,7 @@ class PoseTrackDataset(Dataset):
       visib_frame = visib[init_frame - initial_frame]
       valids = visib_frame.unsqueeze(0).repeat(30, 1)
       return queries, trajs_e, visib, [initial_frame],valids
-    # for i in frames:
-    #   frame_lst = frames[i]
-    #   subclip_frames,count_values,init_queries_lst = best_starting_frame(frame_lst)
-    #   frame_to_index = {frame: k for k, frame in enumerate(frame_lst)}
-
-    #   if len(subclip_frames) > 0:
-    #     total_starts += subclip_frames
-    #     person = i
-        # for num_subclips in range(len(subclip_frames)):
-        #   initial_frame = subclip_frames[num_subclips]
-          # end_frame = initial_frame + self.max_frames - 1
-          # num_times = T -initial_frame +1
-          # if num_times > self.max_frames:
-          #   num_times = self.max_frames
-          # trajs_e = torch.zeros((num_times, 17, 2))
-          # visib = torch.zeros((num_times, 17))
-          # for k in range(num_times):
-          #   frame_number = initial_frame + k
-          #   if frame_number in frame_to_index:
-          #     trajs_e[k] = persons[person][frame_to_index[frame_number]]
-          #     visib[k] = visibility[i][frame_to_index[frame_number]]
-          # if trajs_e.shape[0] != self.max_frames:
-          #   req_frames = self.max_frames - trajs_e.shape[0]
-          #   trajs_e = self.make_palindrome(trajs_e, self.max_frames)
-          #   visib = self.make_palindrome(visib, self.max_frames)
-
-          # init_frame = init_queries_lst[num_subclips]
-
-          # init_frame_idx = frame_to_index[init_frame]
-          # input_frame = persons[person][init_frame_idx]
-          # frame_tensor = torch.full((17, 1), init_frame - initial_frame)
-          # queries = torch.cat((frame_tensor, input_frame), dim=1).unsqueeze(0)
-          # persons_and_frames.append((initial_frame,person,init_frame,init_frame_idx))
-          # trajs_e = trajs_e.unsqueeze(0)
-          # visib = visib.unsqueeze(0)
-          # if queries_lst is None:
-          #   queries_lst = queries
-          #   trajs_e_lst = trajs_e
-          #   vis_lst = visib
-          # else:
-          #   queries_lst = torch.cat((queries_lst, queries), dim=0)
-          #   trajs_e_lst = torch.cat((trajs_e_lst, trajs_e), dim=0)
-          #   vis_lst = torch.cat((vis_lst, visib), dim=0)
-
-    # if len(total_starts) == 0:
-    #   default_queries = torch.zeros((1,17, 3))
-    #   default_trajectories = torch.zeros((1,self.max_frames, 17, 2))
-    #   default_visibility = torch.zeros((1,self.max_frames, 17))
-    #   total_starts = [0]
-      # return default_queries, default_trajectories, default_visibility, total_starts, [(0,None,0,0)]
-
-
-    return queries_lst, trajs_e_lst, vis_lst, total_starts, persons_and_frames
-
+      
   def __getitem__(self, idx):
 
     def find_greatest_leq(sorted_list, query):
@@ -237,8 +172,6 @@ class PoseTrackDataset(Dataset):
           return sorted_list[index - 1]
       else:
           return None
-
-    # subdir = self.valid_subdirectories[idx]
     if idx >= len(self):
       print("Not those many values present")
       return None
@@ -253,12 +186,8 @@ class PoseTrackDataset(Dataset):
     img_path = os.path.join(self.main_folder, subdir)
     anno_path = os.path.join(self.json_folder, f"{subdir}.json")
     queries, trajs_e, vis,total_starts,valids = self.load_anno(anno_path, img_path,list_values)
-    # queries_lst, trajs_e_lst, vis_lst, total_starts = self.load_anno(anno_path, img_path)
-    # queries_lst, trajs_e_lst, vis_lst, total_starts, persons_and_frames = self.load_anno(anno_path, img_path)
     video,W,H = self.load_video(img_path, total_starts)
     queries = queries.clone()
-    # print(video.shape)
-    # print(queries.shape)
     queries[:,1:] *= queries.new_tensor(
         [
             (self.interp_shape[1] - 1) / (W - 1),
@@ -275,9 +204,9 @@ class PoseTrackDataset(Dataset):
     )
 
     return video, queries, trajs_e, vis,valids
-      # return req_frames
 
 train_folder = '/content/drive/MyDrive/PoseTrack2/d1/images/train'
 train_json_folder = '/content/drive/MyDrive/PoseTrack2/d1/PoseTrack21/posetrack_data/train'
-train_dataset = PoseTrackDataset(train_folder, train_json_folder, 30, (384,512))
+train_start_frames_folder = '/content/drive/MyDrive/PoseTrack2/d1/dict.json'
+train_dataset = PoseTrackDataset(train_folder, train_json_folder,train_start_frames_folder, 30, (384,512))
 
